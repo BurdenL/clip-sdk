@@ -27,3 +27,7 @@ func (e *PureGoSearchEngine) SearchTopK(query []float32, k int) []Match {
 	}
 	return results[:k]
 }
+
+func (e *PureGoSearchEngine) Index() *ImageIndex {
+	return e.index
+}
