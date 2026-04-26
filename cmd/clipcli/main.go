@@ -93,6 +93,7 @@ func usage() {
 
 // ONNX 推理 + 搜索
 func runFullSearch(model, bin, txt, image, ortLib string, topK int) {
+	// 初始化客户端
 	client, err := clipsdk.NewClient(clipsdk.Config{
 		ModelPath: model,
 		IndexBin:  bin,
@@ -105,8 +106,9 @@ func runFullSearch(model, bin, txt, image, ortLib string, topK int) {
 	}
 	defer client.Close()
 
+	// 查询示例
 	t0 := time.Now()
-	results, err := client.SearchImage(image, topK)
+	results, err := client.SearchImageByPath(image, topK)
 	if err != nil {
 		fmt.Println("查询失败:", err)
 		return
@@ -117,6 +119,29 @@ func runFullSearch(model, bin, txt, image, ortLib string, topK int) {
 	for i, r := range results {
 		fmt.Printf("  #%d: %s  sim=%.4f\n", i+1, r.Name, r.Similarity)
 	}
+
+	// 范围搜索示例
+	f, err := os.Open(image)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	scope := 0.7
+
+	t0 = time.Now()
+	results, err = client.SearchScopeByReader(f, float32(scope))
+	if err != nil {
+		fmt.Println("查询失败:", err)
+		return
+	}
+	elapsed = time.Since(t0)
+
+	fmt.Printf("\n使用图片流查询: %s (耗时 %v)\n\nTop-%f:\n", image, elapsed, scope)
+	for i, r := range results {
+		fmt.Printf("  #%d: %s  sim=%.4f\n", i+1, r.Name, r.Similarity)
+	}
+
 }
 
 // 纯向量查询

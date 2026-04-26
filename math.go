@@ -2,6 +2,7 @@ package clipsdk
 
 import "math"
 
+// dotProduct 计算两个向量的点积
 func dotProduct(a, b []float32) float32 {
 	var sum float32
 	for i := range a {
@@ -10,6 +11,7 @@ func dotProduct(a, b []float32) float32 {
 	return sum
 }
 
+// l2Normalize 对向量进行 L2 归一化
 func l2Normalize(v []float32) []float32 {
 	var sum float32
 	for _, x := range v {

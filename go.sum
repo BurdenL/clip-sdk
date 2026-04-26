@@ -1,0 +1,4 @@
+github.com/yalue/onnxruntime_go v1.12.0 h1:UtrSZOV9cY9j8ualjiakzRSn7H+bvu6QyCHAA3QwKns=
+github.com/yalue/onnxruntime_go v1.12.0/go.mod h1:b4X26A8pekNb1ACJ58wAXgNKeUCGEAQ9dmACut9Sm/4=
+golang.org/x/image v0.19.0 h1:D9FX4QWkLfkeqaC62SonffIIuYdOk/UE2XKUBgRIBIQ=
+golang.org/x/image v0.19.0/go.mod h1:y0zrRqlQRWQ5PXaYCOMLTW2fpsxZ8Qh9I/ohnInJEys=

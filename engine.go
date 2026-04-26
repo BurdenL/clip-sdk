@@ -2,6 +2,9 @@ package clipsdk
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"os"
 	"runtime"
 	"sync"
 
@@ -30,9 +33,13 @@ type worker struct {
 // ====================== 初始化 ======================
 
 func NewCLIPSearchEngine(onnxPath, indexBin, indexTxt, onnxLib string) (*CLIPSearchEngine, error) {
+
+	fmt.Printf("Loading ONNX model from %s\n", onnxPath)
+	fmt.Printf("Loading index from %s and %s\n", indexBin, indexTxt)
+	fmt.Printf("Using ONNX Runtime library: %s\n", onnxLib)
 	ort.SetSharedLibraryPath(onnxLib)
 	if err := ort.InitializeEnvironment(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("初始化 ONNX Runtime 失败: %w", err)
 	}
 
 	idx, err := LoadIndex(indexBin, indexTxt)
@@ -111,25 +118,39 @@ func (e *CLIPSearchEngine) Close() {
 // ====================== 核心推理 ======================
 
 // 单张图（线程安全）
-func (e *CLIPSearchEngine) ExtractEmbedding(imagePath string) ([]float32, error) {
+// ExtractEmbeddingByPath 依然保留，作为 ExtractEmbedding 的便捷包装
+func (e *CLIPSearchEngine) ExtractEmbeddingByPath(imagePath string) ([]float32, error) {
+	f, err := os.Open(imagePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return e.ExtractEmbedding(f)
+}
+
+// ExtractEmbedding 接收 io.Reader 流（线程安全） 生成图片的特征向量
+func (e *CLIPSearchEngine) ExtractEmbedding(r io.Reader) ([]float32, error) {
+	// 从池中获取 worker 资源
 	w := <-e.workers
 	defer func() { e.workers <- w }()
 
-	inputData, err := preprocessImage(imagePath)
+	// 调用流式预处理方法
+	inputData, err := PreprocessImageStream(r)
 	if err != nil {
 		return nil, err
 	}
 
-	// ✅ 零拷贝写入 tensor
+	// ✅ 零拷贝写入 tensor (确保 inputData 长度与 Tensor 匹配)
 	copy(w.inputTensor.GetData(), inputData)
 
-	// 推理
+	// 执行推理
 	if err := w.session.Run(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ONNX run error: %w", err)
 	}
 
+	// 获取输出并深拷贝
 	output := w.outputTensor.GetData()
-
 	emb := make([]float32, len(output))
 	copy(emb, output)
 
@@ -183,8 +204,7 @@ func (e *CLIPSearchEngine) ExtractEmbeddingBatch(paths []string) ([][]float32, e
 	return results, nil
 }
 
-// ====================== 检索 ======================
-
+// ====================== 搜索 ======================
 func (e *CLIPSearchEngine) SearchTopK(queryEmb []float32, k int) []Match {
 	results := make([]Match, len(e.index.Embeddings))
 
@@ -204,10 +224,84 @@ func (e *CLIPSearchEngine) SearchTopK(queryEmb []float32, k int) []Match {
 	return results[:k]
 }
 
+// SearchTopKByFile 接收图片路径，直接返回 Top-K 结果（线程安全）
 func (e *CLIPSearchEngine) SearchTopKByFile(path string, k int) ([]Match, error) {
-	emb, err := e.ExtractEmbedding(path)
+	// 直接调用 ExtractEmbeddingByPath 获取特征向量
+	emb, err := e.ExtractEmbeddingByPath(path)
+
+	// fmt.Printf("Extracted embedding for %s: %v\n", path, emb)
 	if err != nil {
 		return nil, err
 	}
 	return e.SearchTopK(emb, k), nil
+}
+
+// SearchTopKByReader 接收图片流，直接返回 Top-K 结果（线程安全）
+func (e *CLIPSearchEngine) SearchTopKByReader(r io.Reader, k int) ([]Match, error) {
+	// 直接调用 ExtractEmbedding 获取特征向量
+	emb, err := e.ExtractEmbedding(r)
+
+	// fmt.Printf("Extracted embedding: %v\n", emb)
+	if err != nil {
+		return nil, err
+	}
+	return e.SearchTopK(emb, k), nil
+}
+
+// SearchScopeByFile 接收图片路径，直接返回相似度高于指定阈值的结果（线程安全）
+func (e *CLIPSearchEngine) SearchScopeByFile(path string, scope float32) ([]Match, error) {
+	// 直接调用 ExtractEmbeddingByPath 获取特征向量
+	emb, err := e.ExtractEmbeddingByPath(path)
+
+	// fmt.Printf("Extracted embedding for %s: %v\n", path, emb)
+	if err != nil {
+		return nil, err
+	}
+	return e.SearchScope(emb, scope), nil
+}
+
+// SearchScopeByReader 接收图片流，直接返回相似度高于指定阈值的结果（线程安全）
+func (e *CLIPSearchEngine) SearchScopeByReader(r io.Reader, scope float32) ([]Match, error) {
+	// 直接调用 ExtractEmbedding 获取特征向量
+	emb, err := e.ExtractEmbedding(r)
+
+	// fmt.Printf("Extracted embedding: %v\n", emb)
+	if err != nil {
+		return nil, err
+	}
+	return e.SearchScope(emb, scope), nil
+}
+
+// SearchScope 在索引库中搜索所有相似度高于指定阈值的匹配项。
+//
+// 参数:
+//
+//	queryEmb: 查询向量（通常由 ExtractEmbedding 生成），应为 L2 归一化后的向量。
+//	score:    相似度阈值（通常在 0 到 1 之间）。只有相似度 >= score 的结果才会被返回。
+//
+// 返回值:
+//
+//	返回一个 Match 切片，按相似度从高到低（降序）排列。如果未找到符合条件的匹配项，返回 nil 或空切片。
+func (e *CLIPSearchEngine) SearchScope(queryEmb []float32, score float32) []Match {
+	// 1. 初始化一个空切片，用于存放符合条件的结果
+	var results []Match
+
+	// 2. 遍历索引
+	for i, emb := range e.index.Embeddings {
+		similarity := dotProduct(queryEmb, emb)
+
+		// 3. 仅当相似度大于或等于传入的阈值 score 时才记录
+		if similarity >= score {
+			results = append(results, Match{
+				Name:       e.index.Names[i],
+				Index:      i,
+				Similarity: similarity,
+			})
+		}
+	}
+
+	// 4. 对符合条件的结果进行排序（从高到低）
+	sortMatches(results)
+
+	return results
 }
