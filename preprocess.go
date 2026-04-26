@@ -18,6 +18,10 @@ var (
 )
 
 func preprocessImage(path string) ([]float32, error) {
+	if err := FileCheck(path); err != nil {
+		return nil, err
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err

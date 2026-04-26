@@ -226,14 +226,15 @@ func (e *CLIPSearchEngine) SearchTopK(queryEmb []float32, k int) []Match {
 
 // SearchTopKByFile 接收图片路径，直接返回 Top-K 结果（线程安全）
 func (e *CLIPSearchEngine) SearchTopKByFile(path string, k int) ([]Match, error) {
-	// 直接调用 ExtractEmbeddingByPath 获取特征向量
-	emb, err := e.ExtractEmbeddingByPath(path)
-
-	// fmt.Printf("Extracted embedding for %s: %v\n", path, emb)
+	if err := FileCheck(path); err != nil {
+		return nil, err
+	}
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	return e.SearchTopK(emb, k), nil
+	defer f.Close()
+	return e.SearchTopKByReader(f, k)
 }
 
 // SearchTopKByReader 接收图片流，直接返回 Top-K 结果（线程安全）
@@ -250,14 +251,16 @@ func (e *CLIPSearchEngine) SearchTopKByReader(r io.Reader, k int) ([]Match, erro
 
 // SearchScopeByFile 接收图片路径，直接返回相似度高于指定阈值的结果（线程安全）
 func (e *CLIPSearchEngine) SearchScopeByFile(path string, scope float32) ([]Match, error) {
-	// 直接调用 ExtractEmbeddingByPath 获取特征向量
-	emb, err := e.ExtractEmbeddingByPath(path)
+	if err := FileCheck(path); err != nil {
+		return nil, err
+	}
 
-	// fmt.Printf("Extracted embedding for %s: %v\n", path, emb)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	return e.SearchScope(emb, scope), nil
+	defer f.Close()
+	return e.SearchScopeByReader(f, scope)
 }
 
 // SearchScopeByReader 接收图片流，直接返回相似度高于指定阈值的结果（线程安全）
