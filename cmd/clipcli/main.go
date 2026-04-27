@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -138,6 +139,28 @@ func runFullSearch(model, bin, txt, image, ortLib string, topK int) {
 	elapsed = time.Since(t0)
 
 	fmt.Printf("\n使用图片流查询: %s (耗时 %v)\n\nTop-%f:\n", image, elapsed, scope)
+	for i, r := range results {
+		fmt.Printf("  #%d: %s  sim=%.4f\n", i+1, r.Name, r.Similarity)
+	}
+
+	// 范围搜索示例
+	baseFile, err := os.Open("img_base64.txt")
+	if err != nil {
+		return
+	}
+	defer baseFile.Close()
+
+	decoder := base64.NewDecoder(base64.StdEncoding, baseFile)
+
+	t0 = time.Now()
+	results, err = client.SearchScopeByReader(decoder, float32(scope))
+	if err != nil {
+		fmt.Println("查询失败:", err)
+		return
+	}
+	elapsed = time.Since(t0)
+
+	fmt.Printf("\n使用base64后的图片流查询: %s (耗时 %v)\n\nTop-%f:\n", image, elapsed, scope)
 	for i, r := range results {
 		fmt.Printf("  #%d: %s  sim=%.4f\n", i+1, r.Name, r.Similarity)
 	}

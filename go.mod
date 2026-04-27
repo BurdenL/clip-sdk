@@ -1,6 +1,6 @@
 module github.com/BurdenL/clip-sdk
 
-go 1.26.2
+go 1.21
 
 require (
 	github.com/yalue/onnxruntime_go v1.12.0
