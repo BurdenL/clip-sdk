@@ -24,17 +24,31 @@ ORTLib:    "libonnxruntime.so",
 
 results, _ := client.SearchImage("test.jpg", 5)
 
-// 范围搜索示例
+// 提取特征向量示例
 f, err := os.Open(image)
 if err != nil {
     return
 }
 defer f.Close()
 
+embedding, err := client.ExtractEmbeddingByReader(f)
+if err != nil {
+    fmt.Println("提取特征向量失败:", err)
+    return
+}
+fmt.Printf("特征向量长度: %d\n", len(embedding))
+
+// 范围搜索示例
+f2, err := os.Open(image)
+if err != nil {
+    return
+}
+defer f2.Close()
+
 scope := 0.7
 
 t0 = time.Now()
-results, err = client.SearchScopeByReader(f, float32(scope))
+results, err = client.SearchScopeByReader(f2, float32(scope))
 if err != nil {
     fmt.Println("查询失败:", err)
     return
