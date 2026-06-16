@@ -53,6 +53,36 @@ for i, r := range results {
 
     cmd/clipcli/main.go
 
+## 特征向量写入（EmbeddingWriter）
+
+库内提供 `EmbeddingWriter` 用于将提取到的特征向量写入磁盘，通常配合批量提取流程使用。使用示例：
+
+```golang
+writer, err := clipsdk.NewEmbeddingWriter("./output", "batch1")
+if err != nil {
+		return err
+}
+defer writer.Close() // 必须 Close() 来回写 Header
+
+// 单条写入
+_ = writer.Add("image_001.jpg", embedding)
+
+// 批量写入
+records := []clipsdk.EmbeddingRecord{{Filename: "image_002.jpg", Embedding: emb2}}
+_ = writer.AddBatch(records)
+```
+
+生成文件说明（假设 tag 为 `batch1`，输出目录为 `./output`）：
+- 二进制文件：`image_index_batch1.bin`，结构为：
+	- Header（8 字节）：`count` (uint32, little-endian) + `dim` (uint32, little-endian)
+	- 随后按行存放每个向量的原始 float32 值，按小端序连续写入，向量顺序与文本文件一致。
+- 文本文件：`image_index_batch1.txt`，每行对应一个图片文件名（与二进制向量顺序一一对应）。
+
+注意事项：
+- 写入完成后必须调用 `Close()`，函数会刷新缓冲区并回写文件头的 `count` 与 `dim`。
+- 写入时会做维度检查，所有向量必须具有相同维度。
+
+
 
 图片流处理
 ```golang

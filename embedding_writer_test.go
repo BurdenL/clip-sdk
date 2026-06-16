@@ -58,8 +58,8 @@ func TestEmbeddingWriter(t *testing.T) {
 	// 6. 验证逻辑：读取生成的文件，确保数据 100% 正确
 	// ==========================================
 
-	// 验证 bin 文件
-	binPath := filepath.Join(tmpDir, "embeddings.bin")
+	// 验证 bin 文件（NewEmbeddingWriter 使用 image_index_<tag>.bin / .txt 命名）
+	binPath := filepath.Join(tmpDir, "image_index_test.bin")
 	binFile, err := os.Open(binPath)
 	if err != nil {
 		t.Fatalf("Failed to open generated bin file: %v", err)
@@ -85,7 +85,7 @@ func TestEmbeddingWriter(t *testing.T) {
 	}
 
 	// 验证 txt 文件大小或内容
-	txtPath := filepath.Join(tmpDir, "filenames.txt")
+	txtPath := filepath.Join(tmpDir, "image_index_test.txt")
 	txtContent, err := os.ReadFile(txtPath)
 	if err != nil {
 		t.Fatalf("Failed to read txt file: %v", err)

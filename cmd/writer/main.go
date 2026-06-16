@@ -62,5 +62,5 @@ func main() {
 		log.Fatalf("关闭并回写 Header 失败: %v", err)
 	}
 
-	fmt.Println("写入完成！成功生成 embeddings.bin 和 filenames.txt")
+	fmt.Println("写入完成！成功生成 image_index_test.bin 和 image_index_test.txt（位于 output 目录）")
 }
