@@ -249,6 +249,17 @@ func (e *CLIPSearchEngine) SearchTopKByReader(r io.Reader, k int) ([]Match, erro
 	return e.SearchTopK(emb, k), nil
 }
 
+func (e *CLIPSearchEngine) ExtractEmbeddingByReader(r io.Reader) ([]float32, error) {
+	// 直接调用 ExtractEmbedding 获取特征向量
+	emb, err := e.ExtractEmbedding(r)
+
+	// fmt.Printf("Extracted embedding: %v\n", emb)
+	if err != nil {
+		return nil, err
+	}
+	return emb, nil
+}
+
 // SearchScopeByFile 接收图片路径，直接返回相似度高于指定阈值的结果（线程安全）
 func (e *CLIPSearchEngine) SearchScopeByFile(path string, scope float32) ([]Match, error) {
 	if err := FileCheck(path); err != nil {
@@ -261,6 +272,20 @@ func (e *CLIPSearchEngine) SearchScopeByFile(path string, scope float32) ([]Matc
 	}
 	defer f.Close()
 	return e.SearchScopeByReader(f, scope)
+}
+
+// ExtractEmbeddingByFile 接收图片路径，直接返回特征向量（线程安全）
+func (e *CLIPSearchEngine) ExtractEmbeddingByFile(path string) ([]float32, error) {
+	if err := FileCheck(path); err != nil {
+		return nil, err
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return e.ExtractEmbeddingByReader(f)
 }
 
 // SearchScopeByReader 接收图片流，直接返回相似度高于指定阈值的结果（线程安全）

@@ -3,8 +3,11 @@ package clipsdk
 import (
 	"fmt"
 	"image"
+	"image/color"
+	_ "image/color"
 	_ "image/jpeg"
 	_ "image/png"
+	"math"
 	"os"
 
 	"io"
@@ -34,8 +37,10 @@ func preprocessImage(path string) ([]float32, error) {
 	}
 
 	size := 224
-	resized := image.NewRGBA(image.Rect(0, 0, size, size))
-	draw.CatmullRom.Scale(resized, resized.Bounds(), img, img.Bounds(), draw.Src, nil)
+	resized := resizeWithPadding(
+		img,
+		size,
+	)
 
 	tensor := make([]float32, 3*size*size)
 
@@ -63,8 +68,10 @@ func PreprocessImageStream(r io.Reader) ([]float32, error) {
 
 	// 2. 缩放至 224x224 (使用 CatmullRom 算法保持高质量)
 	size := 224
-	resized := image.NewRGBA(image.Rect(0, 0, size, size))
-	draw.CatmullRom.Scale(resized, resized.Bounds(), img, img.Bounds(), draw.Src, nil)
+	resized := resizeWithPadding(
+		img,
+		224,
+	)
 
 	// 3. 准备 Tensor 容器 (3 * 224 * 224)
 	tensor := make([]float32, 3*size*size)
@@ -85,4 +92,83 @@ func PreprocessImageStream(r io.Reader) ([]float32, error) {
 		}
 	}
 	return tensor, nil
+}
+
+func resizeWithPadding(
+	img image.Image,
+	target int,
+) *image.RGBA {
+
+	bounds := img.Bounds()
+
+	w := bounds.Dx()
+	h := bounds.Dy()
+
+	scale := math.Min(
+		float64(target)/float64(w),
+		float64(target)/float64(h),
+	)
+
+	// newW := int(float64(w) * scale)
+	// newH := int(float64(h) * scale)
+	newW := int(math.Round(float64(w) * scale))
+	newH := int(math.Round(float64(h) * scale))
+
+	if newW > target {
+		newW = target
+	}
+
+	if newH > target {
+		newH = target
+	}
+
+	resized := image.NewRGBA(
+		image.Rect(0, 0, newW, newH),
+	)
+
+	draw.CatmullRom.Scale(
+		resized,
+		resized.Bounds(),
+		img,
+		bounds,
+		draw.Src,
+		nil,
+	)
+
+	canvas := image.NewRGBA(
+		image.Rect(0, 0, target, target),
+	)
+
+	draw.Draw(
+		canvas,
+		canvas.Bounds(),
+		&image.Uniform{
+			color.RGBA{
+				123,
+				117,
+				104,
+				255,
+			},
+		},
+		image.Point{},
+		draw.Src,
+	)
+
+	offsetX := (target - newW) / 2
+	offsetY := (target - newH) / 2
+
+	draw.Draw(
+		canvas,
+		image.Rect(
+			offsetX,
+			offsetY,
+			offsetX+newW,
+			offsetY+newH,
+		),
+		resized,
+		image.Point{},
+		draw.Src,
+	)
+
+	return canvas
 }

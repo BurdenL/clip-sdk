@@ -1,0 +1,1 @@
+go run cmd/clipcli/main.go search assets/clip_image_encoder_int8.onnx assets/image_index.bin  assets/image_index.txt source/query.jpg rt/onnxruntime-linux-x64-1.20.0/lib/libonnxruntime.so
