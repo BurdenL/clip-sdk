@@ -2,6 +2,7 @@ package clipsdk
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"sort"
 )
@@ -10,6 +11,37 @@ func sortMatches(m []Match) {
 	sort.Slice(m, func(i, j int) bool {
 		return m[i].Similarity > m[j].Similarity
 	})
+}
+
+// ValidateEmbeddingFormat 判断 emb 是否符合 ExtractEmbedding 导出的格式。
+// expectedDim > 0 时同时检查向量长度，否则只检查格式和归一化。
+func ValidateEmbeddingFormat(emb []float32, expectedDim int) error {
+	if len(emb) == 0 {
+		return fmt.Errorf("empty embedding")
+	}
+
+	if expectedDim > 0 && len(emb) != expectedDim {
+		return fmt.Errorf("embedding dim mismatch: expect=%d actual=%d", expectedDim, len(emb))
+	}
+
+	var sum float32
+	for _, v := range emb {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("embedding contains invalid value: %v", v)
+		}
+		sum += v * v
+	}
+
+	norm := float32(math.Sqrt(float64(sum)))
+	if norm == 0 {
+		return fmt.Errorf("zero embedding is not valid")
+	}
+
+	if math.Abs(float64(norm-1.0)) > 1e-3 {
+		return fmt.Errorf("embedding is not normalized: norm=%.6f", norm)
+	}
+
+	return nil
 }
 
 // FileCheck 检查路径是否为有效的可读文件

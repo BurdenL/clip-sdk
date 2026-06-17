@@ -184,6 +184,17 @@ func runFullSearch(model, bin, txt, image, ortLib string, topK int) {
 
 	} else {
 		fmt.Printf("\n使用图片流查询提取的特征向量: %v\n", emb)
+
+		results, err = client.SearchScopeByEmb(emb, float32(scope))
+
+		if err != nil {
+			fmt.Println("使用特征向量查询失败:", err)
+		} else {
+			fmt.Printf("\n使用特征向量查询: %s (耗时 %v)\n\nTop-%f:\n", image, elapsed, scope)
+			for i, r := range results {
+				fmt.Printf("  #%d: %s  sim=%.4f\n", i+1, r.Name, r.Similarity)
+			}
+		}
 	}
 
 	// // 范围搜索示例

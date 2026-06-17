@@ -38,6 +38,16 @@ func (c *Client) SearchImageByReader(r io.Reader, topK int) ([]Match, error) {
 	return c.engine.SearchTopKByReader(r, topK)
 }
 
+// SearchImageByEmb 接收特征向量，直接返回 Top-K 结果（线程安全）
+func (c *Client) SearchImageByEmb(emb []float32, topK int) ([]Match, error) {
+	return c.engine.SearchTopKByEmbedding(emb, topK)
+}
+
+// SearchScopeByEmb 接收特征向量，直接返回相似度高于指定阈值的结果（线程安全）
+func (c *Client) SearchScopeByEmb(emb []float32, scope float32) ([]Match, error) {
+	return c.engine.SearchScopeByEmbedding(emb, scope)
+}
+
 // ExtractEmbeddingByReader 接收图片流，直接返回特征向量（线程安全）
 func (c *Client) ExtractEmbeddingByReader(r io.Reader) ([]float32, error) {
 	return c.engine.ExtractEmbeddingByReader(r)

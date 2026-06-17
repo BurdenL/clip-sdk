@@ -249,6 +249,26 @@ func (e *CLIPSearchEngine) SearchTopKByReader(r io.Reader, k int) ([]Match, erro
 	return e.SearchTopK(emb, k), nil
 }
 
+// SearchTopKByEmbedding 接收特征向量，直接返回 Top-K 结果（线程安全）
+func (e *CLIPSearchEngine) SearchTopKByEmbedding(emb []float32, k int) ([]Match, error) {
+
+	if err := ValidateEmbeddingFormat(emb, 512); err != nil {
+		return nil, fmt.Errorf("invalid embedding format: %w", err)
+	}
+
+	return e.SearchTopK(emb, k), nil
+}
+
+func (e *CLIPSearchEngine) SearchScopeByEmbedding(emb []float32, scope float32) ([]Match, error) {
+
+	if err := ValidateEmbeddingFormat(emb, 512); err != nil {
+		return nil, fmt.Errorf("invalid embedding format: %w", err)
+	}
+
+	return e.SearchScope(emb, scope), nil
+}
+
+// ExtractEmbeddingByReader 接收图片流，直接返回特征向量（线程安全）
 func (e *CLIPSearchEngine) ExtractEmbeddingByReader(r io.Reader) ([]float32, error) {
 	// 直接调用 ExtractEmbedding 获取特征向量
 	emb, err := e.ExtractEmbedding(r)
